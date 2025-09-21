@@ -1,0 +1,5 @@
+{
+  "name": "Copy of AI-Powered Smart Image Resizer",
+  "description": "An intelligent tool to resize images to specific dimensions while preserving the core composition. This app uses client-side canvas for resizing and the Gemini API to provide an AI-powered analysis of the image's composition.",
+  "requestFramePermissions": []
+}
