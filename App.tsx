@@ -98,9 +98,21 @@ const App: React.FC = () => {
         const finalImageUrl = await scaleImage(outpaintedImageUrl, targetDimensions);
 
         setResizedImageUrl(finalImageUrl);
-    } catch (err) {
+    } catch (err: any) {
         console.error(err);
-        setError('Failed to resize with AI. The model may be busy. Try standard resize or check console for errors.');
+        let errorMessage = 'Failed to resize with AI. The model may be busy or an error occurred.';
+        if (err instanceof Error) {
+            errorMessage = err.message;
+        }
+        
+        // Add a helpful hint about API key restrictions, a common deployment issue.
+        if (errorMessage.toLowerCase().includes('api key')) {
+             errorMessage += ' Please also check that your API key is valid and has no domain restrictions (like HTTP referrers) that would block requests from this website.';
+        } else if (errorMessage.toLowerCase().includes('blocked')) {
+             errorMessage += ' Try modifying your prompt or using a different image.';
+        }
+
+        setError(errorMessage);
     } finally {
         setIsLoading(false);
     }

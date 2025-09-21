@@ -109,32 +109,61 @@ export const outpaintImage = async (file: File, targetDimensions: Dimensions, cu
 
 
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
-        contents: {
-            parts: [
-                {
-                    inlineData: {
-                        data: base64PaddedImage,
-                        mimeType: 'image/png',
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image-preview',
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            data: base64PaddedImage,
+                            mimeType: 'image/png',
+                        },
                     },
-                },
-                {
-                    text: promptText,
-                },
-            ],
-        },
-        config: {
-            responseModalities: [Modality.IMAGE, Modality.TEXT],
-        },
-    });
+                    {
+                        text: promptText,
+                    },
+                ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE, Modality.TEXT],
+            },
+        });
 
-    for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-            const base64ImageBytes = part.inlineData.data;
-            return `data:image/png;base64,${base64ImageBytes}`;
+        if (!response.candidates || response.candidates.length === 0) {
+            let errorMessage = "AI did not return a valid image response.";
+            if (response.promptFeedback?.blockReason) {
+                errorMessage = `Request was blocked by the API. Reason: ${response.promptFeedback.blockReason}.`;
+                if (response.promptFeedback.blockReason === 'SAFETY' && response.promptFeedback.safetyRatings) {
+                    const harmfulCategories = response.promptFeedback.safetyRatings
+                        .filter(rating => rating.probability !== 'NEGLIGIBLE' && rating.probability !== 'LOW')
+                        .map(rating => rating.category.replace('HARM_CATEGORY_', ''))
+                        .join(', ');
+                    if (harmfulCategories) {
+                        errorMessage += ` Harmful categories detected: ${harmfulCategories}.`;
+                    }
+                }
+            }
+            throw new Error(errorMessage);
         }
-    }
 
-    throw new Error("AI did not return an image.");
+        const candidate = response.candidates[0];
+        if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+            throw new Error("AI returned a response with no content parts.");
+        }
+
+        for (const part of candidate.content.parts) {
+            if (part.inlineData) {
+                const base64ImageBytes = part.inlineData.data;
+                return `data:image/png;base64,${base64ImageBytes}`;
+            }
+        }
+
+        throw new Error("AI did not return an image. The response may have contained only text.");
+
+    } catch (error: any) {
+        console.error("Gemini API Error in outpaintImage:", error);
+        // Re-throw with a more user-friendly message that includes the original error.
+        throw new Error(`AI generation failed: ${error.message}`);
+    }
 };
