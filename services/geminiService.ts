@@ -22,14 +22,13 @@ const fileToGenerativePart = async (file: File) => {
   };
 };
 
-export const analyzeImageComposition = async (imageFile: File): Promise<string> => {
-  if (!process.env.API_KEY) {
-    console.error("API_KEY environment variable not set.");
-    return "Error: API key is not configured. Please contact the administrator.";
+export const analyzeImageComposition = async (imageFile: File, apiKey: string): Promise<string> => {
+  if (!apiKey) {
+    return "Error: API key not provided. Please enter your key in the input field.";
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const imagePart = await fileToGenerativePart(imageFile);
     
     const response = await ai.models.generateContent({
@@ -47,14 +46,14 @@ export const analyzeImageComposition = async (imageFile: File): Promise<string> 
     return response.text;
   } catch (error) {
     console.error("Error analyzing image with Gemini:", error);
-    return "An error occurred while analyzing the image composition.";
+    return "An error occurred while analyzing the image composition. Please check your API key and network connection.";
   }
 };
 
 
-export const outpaintImage = async (file: File, targetDimensions: Dimensions, customPrompt?: string): Promise<string> => {
-    if (!process.env.API_KEY) {
-        throw new Error("API_KEY environment variable not set.");
+export const outpaintImage = async (file: File, targetDimensions: Dimensions, customPrompt: string | undefined, apiKey: string): Promise<string> => {
+    if (!apiKey) {
+        throw new Error("API key not provided.");
     }
     
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -109,7 +108,7 @@ export const outpaintImage = async (file: File, targetDimensions: Dimensions, cu
         : 'You are a professional photo editor. Your task is to seamlessly fill in the transparent areas of this image to extend the scene. Match the existing style, lighting, and content. Do not alter the original, non-transparent parts of the image.';
 
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image-preview',
         contents: {

@@ -21,6 +21,7 @@ const standardSizes = [
 ];
 
 const App: React.FC = () => {
+  const [apiKey, setApiKey] = useState('');
   const [originalImage, setOriginalImage] = useState<{ file: File | null; url: string | null }>({ file: null, url: null });
   const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
   const [targetDimensions, setTargetDimensions] = useState<Dimensions>({ width: 1024, height: 768 });
@@ -37,6 +38,10 @@ const App: React.FC = () => {
   const { resizeImage, scaleImage } = useImageResizer();
 
   const handleFileSelect = useCallback((file: File) => {
+    if (!apiKey) {
+        setError("Please enter your Google AI API key before uploading an image.");
+        return;
+    }
     setError(null);
     setResizedImageUrl(null);
     setCompositionAnalysis(null);
@@ -46,7 +51,7 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     setLoadingMessage('AI is analyzing image composition...');
-    analyzeImageComposition(file)
+    analyzeImageComposition(file, apiKey)
       .then(analysis => {
         setCompositionAnalysis(analysis);
       })
@@ -57,7 +62,7 @@ const App: React.FC = () => {
       .finally(() => {
         setIsLoading(false);
       });
-  }, []);
+  }, [apiKey]);
   
   const handleStandardSizeChange = (value: string) => {
       setSelectedSize(value);
@@ -87,7 +92,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     try {
         setLoadingMessage('Expanding image with AI to fit new ratio...');
-        const outpaintedImageUrl = await outpaintImage(originalImage.file, targetDimensions, customPrompt);
+        const outpaintedImageUrl = await outpaintImage(originalImage.file, targetDimensions, customPrompt, apiKey);
 
         setLoadingMessage('Finalizing image size...');
         const finalImageUrl = await scaleImage(outpaintedImageUrl, targetDimensions);
@@ -102,6 +107,10 @@ const App: React.FC = () => {
   };
 
   const handleResizeClick = async () => {
+    if (!apiKey) {
+      setError('Please enter your Google AI API key first.');
+      return;
+    }
     if (!originalImage.file) {
       setError('Please select an image first.');
       return;
@@ -147,6 +156,23 @@ const App: React.FC = () => {
           {/* Controls */}
           <div className="lg:col-span-2 bg-gray-800 bg-opacity-50 p-6 rounded-xl shadow-2xl border border-gray-700">
             <div className="space-y-6">
+              <div>
+                  <h2 className="text-xl font-semibold mb-2">0. Enter Your API Key</h2>
+                  <p className="text-sm text-gray-400 mb-3">
+                      To use AI features, first enter your Google AI API key. Get one from{' '}
+                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">
+                          Google AI Studio
+                      </a>.
+                  </p>
+                  <input
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Paste your Google AI API key here"
+                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  />
+              </div>
+
               <div>
                 <h2 className="text-xl font-semibold mb-3">1. Upload Image</h2>
                 <ImageUploader onFileSelect={handleFileSelect} />
@@ -219,7 +245,7 @@ const App: React.FC = () => {
                 <h2 className="text-xl font-semibold mb-3">4. Generate</h2>
                 <Button
                   onClick={handleResizeClick}
-                  disabled={!originalImage.file || isLoading}
+                  disabled={!originalImage.file || isLoading || !apiKey}
                   className="w-full"
                 >
                   {isLoading ? 'Processing...' : (useAIResize ? 'Smart Resize with AI' : 'Resize Image')}
