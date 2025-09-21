@@ -90,6 +90,7 @@ const App: React.FC = () => {
   const handleAIResize = async () => {
     if (!originalImage.file) return;
     setIsLoading(true);
+    setError(null);
     try {
         setLoadingMessage('Expanding image with AI to fit new ratio...');
         const outpaintedImageUrl = await outpaintImage(originalImage.file, targetDimensions, customPrompt, apiKey);
@@ -98,21 +99,25 @@ const App: React.FC = () => {
         const finalImageUrl = await scaleImage(outpaintedImageUrl, targetDimensions);
 
         setResizedImageUrl(finalImageUrl);
-    } catch (err: any) {
-        console.error(err);
-        let errorMessage = 'Failed to resize with AI. The model may be busy or an error occurred.';
+    } catch (err: unknown) {
+        console.error("An error occurred during AI resize:", err);
+
+        let finalErrorMessage: string;
+
         if (err instanceof Error) {
-            errorMessage = err.message;
-        }
-        
-        // Add a helpful hint about API key restrictions, a common deployment issue.
-        if (errorMessage.toLowerCase().includes('api key')) {
-             errorMessage += ' Please also check that your API key is valid and has no domain restrictions (like HTTP referrers) that would block requests from this website.';
-        } else if (errorMessage.toLowerCase().includes('blocked')) {
-             errorMessage += ' Try modifying your prompt or using a different image.';
+            finalErrorMessage = err.message;
+        } else {
+            finalErrorMessage = 'An unexpected error occurred. Check the console for more details.';
         }
 
-        setError(errorMessage);
+        // Add specific, helpful troubleshooting tips based on the error message.
+        if (finalErrorMessage.includes('API key') || finalErrorMessage.includes('403') || finalErrorMessage.toLowerCase().includes('permission denied')) {
+            finalErrorMessage = `API Key Error: ${finalErrorMessage}\n\nTroubleshooting Tip: This error is common after deploying. Please check that your API key is valid and has NO domain restrictions (like HTTP referrers) in your Google Cloud Console. If it does, ensure this website's domain is on the allowed list.`;
+        } else if (finalErrorMessage.toLowerCase().includes('blocked')) {
+            finalErrorMessage += '\n\nThis may be due to the prompt or image content violating safety policies. Try modifying your prompt or using a different image.';
+        }
+
+        setError(finalErrorMessage);
     } finally {
         setIsLoading(false);
     }
@@ -262,7 +267,7 @@ const App: React.FC = () => {
                 >
                   {isLoading ? 'Processing...' : (useAIResize ? 'Smart Resize with AI' : 'Resize Image')}
                 </Button>
-                {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
+                {error && <p className="text-red-400 mt-2 text-sm whitespace-pre-wrap">{error}</p>}
               </div>
             </div>
           </div>
